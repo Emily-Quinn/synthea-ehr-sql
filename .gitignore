@@ -1,0 +1,5 @@
+data/*.csv
+*.duckdb
+.venv/
+.ipynb_checkpoints/
+.DS_Store
