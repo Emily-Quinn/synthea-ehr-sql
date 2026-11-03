@@ -58,3 +58,22 @@ SELECT * FROM medications
 WHERE PATIENT = '03777c32-ed98-50e2-f75d-cbcad532c610'
   AND ENCOUNTER = '4ae64c5e-0164-b998-a5fa-c61693ae8ae0'
   AND CODE = 705129;
+
+-- procedures: (PATIENT, ENCOUNTER, CODE) NOT unique -> 103 groups (some with 10+ rows)
+SELECT PATIENT, ENCOUNTER, CODE, COUNT(*) AS n
+FROM procedures
+GROUP BY PATIENT, ENCOUNTER, CODE
+HAVING COUNT(*) > 1;
+
+-- procedures: (PATIENT, ENCOUNTER, CODE, STOP) verified unique -> 0 rows
+-- Repeats are the same procedure performed multiple times in one encounter
+SELECT PATIENT, ENCOUNTER, CODE, STOP, COUNT(*) AS n
+FROM procedures
+GROUP BY PATIENT, ENCOUNTER, CODE, STOP
+HAVING COUNT(*) > 1;
+
+-- procedures: most-repeated codes are oxygen by mask and prone positioning;
+-- each code maps to exactly one description
+SELECT DISTINCT CODE, DESCRIPTION
+FROM procedures
+WHERE CODE IN (371908008, 431182000);
