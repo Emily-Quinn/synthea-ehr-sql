@@ -89,15 +89,28 @@ GROUP BY e.ENCOUNTERCLASS, e.REASONDESCRIPTION
 ORDER BY n_encounters DESC;
 
 -- Same, split by procedure code.
--- Result: matching encounter counts (CHF 84/84, COVID 21/20) SUGGEST the two procedures
--- co-occur, but this is NOT yet verified per encounter (equal totals could be different encounters).
--- If confirmed, prone positioning in CHF encounters is likely a Synthea modeling artifact.
+-- Result: CHF 84/84 emergency and inpatient, COVID 21/20 inpatient.
+-- Pairing verified per encounter in the next query.
 SELECT e.ENCOUNTERCLASS, e.REASONDESCRIPTION, p.CODE, COUNT(DISTINCT e.Id) AS n_encounters
 FROM procedures p
 JOIN encounters e ON p.ENCOUNTER = e.Id
 WHERE p.CODE IN (371908008, 431182000)
 GROUP BY e.ENCOUNTERCLASS, e.REASONDESCRIPTION, p.CODE
 ORDER BY n_encounters DESC;
+
+-- procedures: pairing test -> 190 of 191 encounters with either code have BOTH (99.5%)
+-- Total 191 matches the encounter counts above. Oxygen and prone positioning are paired;
+-- prone positioning in CHF encounters is likely a Synthea modeling artifact.
+WITH enc AS (
+    SELECT ENCOUNTER, COUNT(DISTINCT CODE) AS n_codes
+    FROM procedures
+    WHERE CODE IN (371908008, 431182000)
+    GROUP BY ENCOUNTER
+)
+SELECT n_codes, COUNT(*) AS n_encounters
+FROM enc
+GROUP BY n_codes
+ORDER BY n_codes DESC;
 
 -- procedures: duplicate groups rolled up by code (replaces guessing from 40 visible rows)
 -- Result: oxygen (40 groups) and prone positioning (39) dominate; remaining repeats are
