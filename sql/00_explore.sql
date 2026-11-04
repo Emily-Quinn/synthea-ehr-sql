@@ -77,3 +77,59 @@ HAVING COUNT(*) > 1;
 SELECT DISTINCT CODE, DESCRIPTION
 FROM procedures
 WHERE CODE IN (371908008, 431182000);
+
+-- procedures: encounters with oxygen/prone procedures, by class and reason (first join)
+-- Result: CHF 84 emergency + 84 inpatient; COVID-19 21 inpatient; 2 ambulatory one-offs.
+-- COUNT(DISTINCT e.Id) prevents inflation from repeated procedure rows per encounter.
+SELECT e.ENCOUNTERCLASS, e.REASONDESCRIPTION, COUNT(DISTINCT e.Id) AS n_encounters
+FROM procedures p
+JOIN encounters e ON p.ENCOUNTER = e.Id
+WHERE p.CODE IN (371908008, 431182000)
+GROUP BY e.ENCOUNTERCLASS, e.REASONDESCRIPTION
+ORDER BY n_encounters DESC;
+
+-- Same, split by procedure code.
+-- Result: matching encounter counts (CHF 84/84, COVID 21/20) SUGGEST the two procedures
+-- co-occur, but this is NOT yet verified per encounter (equal totals could be different encounters).
+-- If confirmed, prone positioning in CHF encounters is likely a Synthea modeling artifact.
+SELECT e.ENCOUNTERCLASS, e.REASONDESCRIPTION, p.CODE, COUNT(DISTINCT e.Id) AS n_encounters
+FROM procedures p
+JOIN encounters e ON p.ENCOUNTER = e.Id
+WHERE p.CODE IN (371908008, 431182000)
+GROUP BY e.ENCOUNTERCLASS, e.REASONDESCRIPTION, p.CODE
+ORDER BY n_encounters DESC;
+
+-- procedures: duplicate groups rolled up by code (replaces guessing from 40 visible rows)
+-- Result: oxygen (40 groups) and prone positioning (39) dominate; remaining repeats are
+-- ICU/inpatient procedures (IV fluids, stepdown, ICU admit, ventilation, hemodialysis).
+-- n_groups sums to 97, NOT 103: grouping by DESCRIPTION split groups for codes with
+-- multiple descriptions (see next check).
+WITH dupes AS (
+    SELECT PATIENT, ENCOUNTER, CODE, DESCRIPTION, COUNT(*) AS n
+    FROM procedures
+    GROUP BY PATIENT, ENCOUNTER, CODE, DESCRIPTION
+    HAVING COUNT(*) > 1
+)
+SELECT CODE, DESCRIPTION, COUNT(*) AS n_groups, SUM(n) AS n_rows
+FROM dupes
+GROUP BY CODE, DESCRIPTION
+ORDER BY n_groups DESC;
+
+-- procedures: code consistency -> 6 codes have more than one DESCRIPTION
+SELECT CODE, COUNT(DISTINCT DESCRIPTION) AS n_descriptions
+FROM procedures
+GROUP BY CODE
+HAVING COUNT(DISTINCT DESCRIPTION) > 1;
+
+-- procedures: the descriptions for those 6 codes (14 rows)
+-- 5 codes are cosmetic (suffix or short/full name); 5880005 has 4 context-specific labels.
+-- Conclusion: group and count by CODE, not DESCRIPTION.
+SELECT DISTINCT CODE, DESCRIPTION
+FROM procedures
+WHERE CODE IN (
+    SELECT CODE
+    FROM procedures
+    GROUP BY CODE
+    HAVING COUNT(DISTINCT DESCRIPTION) > 1
+)
+ORDER BY CODE;
